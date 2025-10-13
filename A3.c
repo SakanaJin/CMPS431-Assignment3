@@ -6,7 +6,7 @@
 
 const char DELIMITERS[] = ",";
 const unsigned short BUFFERSIZE = 256;
-const unsigned short MAXPROCESSES = 100;
+// const unsigned short MAXPROCESSES = 100;
 
 struct Process {
     int Id;
@@ -15,8 +15,8 @@ struct Process {
 };
 
 int threadscount = 0;
-int processdonecount = 0;
-int processcount = 0;
+// int processdonecount = 0;
+// int processcount = 0;
 struct Process *waitqueuehead = NULL;
 
 struct Process* createProcess(int id, int bursttime){
@@ -73,7 +73,7 @@ void *threadProcess(void *milliseconds){
     } while ((time2 - time1) < pauseTime);
     printf("Thread %ld waited for: %f seconds\n", thread_id, (double)*(int*)milliseconds/1000);
     free(milliseconds);
-    processdonecount++;
+    // processdonecount++;
     threadscount--;
     return NULL;
 }
