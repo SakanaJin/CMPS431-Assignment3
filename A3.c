@@ -112,6 +112,7 @@ int main(){
         bursttime = atoi(strtok(NULL, DELIMITERS));
         insert_waitqueue_sjf(id, bursttime);
     }
+    fclose(fptr);
     pthread_t thread_id[2];
     struct Process *curr = waitqueuehead;
     while(curr != NULL){
