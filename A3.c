@@ -6,23 +6,29 @@
 
 const char DELIMITERS[] = ",";
 const unsigned short BUFFERSIZE = 256;
-// const unsigned short MAXPROCESSES = 100;
 
 struct Process {
     int Id;
     int bursttime;
+    double starttime;
+    double finishtime;
+    double timeelapsed;
+    int core;
     struct Process *next;
 };
 
 int threadscount = 0;
-// int processdonecount = 0;
-// int processcount = 0;
+clock_t start_time, end_time;
 struct Process *waitqueuehead = NULL;
+int processcount = 0;
 
 struct Process* createProcess(int id, int bursttime){
     struct Process *newProcess = (struct Process *)malloc(sizeof(struct Process));
     newProcess->Id = id;
     newProcess->bursttime = bursttime;
+    newProcess->starttime = 0.0;
+    newProcess->finishtime = 0.0;
+    newProcess->timeelapsed = 0.0;
     newProcess->next = NULL;
     return newProcess;
 }
@@ -40,45 +46,58 @@ void insert_waitqueue_sjf(int id, int bursttime){
     }
     newProcess->next = curr->next;
     curr->next = newProcess;
+    processcount++;
     return;
 }
 
-void remove_top_waitqueue(){
-    struct Process *toRemove = waitqueuehead;
-    waitqueuehead = waitqueuehead->next;
-    free(toRemove);
+void free_list(){
+    while(waitqueuehead != NULL){
+        struct Process *toRemove = waitqueuehead;
+        waitqueuehead = waitqueuehead->next;
+        free(toRemove);
+    }
     return;
 }
 
-void print_llist(){
+void print_llist_info(){
     if(waitqueuehead == NULL){
         printf("Empty list\n");
+        return;
     }
     struct Process *curr = waitqueuehead;
+    double waitsum = 0.0;
+    printf("========================================================================\n");
+    printf("|| %-7s || %-4s || %-5s || %-10s || %-10s || %-10s ||\n", "Process", "Core", "Burst", "Start", "End", "Elapsed");
+    printf("========================================================================\n");
     while(curr != NULL){
-        printf("Process Id: %d\tBurst Time: %d\n", curr->Id, curr->bursttime);
+        printf("|| %-7d || %-4d || %-5d || %-10f || %-10f || %-10f ||\n", curr->Id, curr->core, curr->bursttime, curr->starttime, curr->finishtime, curr->timeelapsed);
+        waitsum = waitsum + curr->starttime; //minus arrival time but I'm assuming all the arrival times are zero
         curr = curr->next;
     }
+    printf("========================================================================\n");
+    printf("Average wait time: %f\n", waitsum / processcount);
     return;
 }
 
-void *threadProcess(void *milliseconds){
+void *threadProcess(void *arg){
+    struct Process *process = (struct Process*)arg;
     pthread_t thread_id = pthread_self();
-    long pauseTime;
+    long pausetime;
     clock_t time1, time2;
-    pauseTime = *(int*)milliseconds * (CLOCKS_PER_SEC / 1000);
+    pausetime = process->bursttime * (CLOCKS_PER_SEC / 1000);
     time1 = clock();
+    process->starttime = (double)(time1 - start_time) / CLOCKS_PER_SEC;
     do{
         time2 = clock();
-    } while ((time2 - time1) < pauseTime);
-    printf("Thread %ld waited for: %f seconds\n", thread_id, (double)*(int*)milliseconds/1000);
-    free(milliseconds);
-    // processdonecount++;
+    }while((time2 - time1) < pausetime);
+    process->timeelapsed = (double)(time2 - time1) / CLOCKS_PER_SEC;
+    process->finishtime = (double)(time2 - start_time) / CLOCKS_PER_SEC;
     threadscount--;
     return NULL;
 }
 
 int main(){
+    start_time = clock();
     char buffer[BUFFERSIZE];
     int id;
     int bursttime;
@@ -94,55 +113,20 @@ int main(){
         insert_waitqueue_sjf(id, bursttime);
     }
     pthread_t thread_id[2];
-    while(waitqueuehead != NULL){
+    struct Process *curr = waitqueuehead;
+    while(curr != NULL){
         if(threadscount == 2){continue;}
-        int *bursttimearg = malloc(sizeof(int));
-        *bursttimearg = waitqueuehead->bursttime;
-        pthread_create(&thread_id[threadscount], NULL, threadProcess, (void *)bursttimearg);
+        pthread_create(&thread_id[threadscount], NULL, threadProcess, (void *)curr);
+        curr->core = threadscount;
         threadscount++;
-        remove_top_waitqueue();
+        curr = curr->next;
     }
     for(int i = 0; i < threadscount; i++){
         pthread_join(thread_id[i], NULL);
     }
+    print_llist_info();
+    end_time = clock();
+    printf("Total Time: %f\n", (double)(end_time - start_time) / CLOCKS_PER_SEC);
+    free_list();
     return 0;
 }
-
-// int main() {
-//     int processes[MAXPROCESSES];
-//     clock_t start_time, end_time;
-//     double cpu_time_used;
-//     start_time = clock();
-//     int id;
-//     FILE *fptr = fopen("testfile.csv", "r");
-//     if(fptr == NULL){
-//         printf("Error opening file\n");
-//         return 1;
-//     }
-//     char buffer[BUFFERSIZE];
-//     int totaltime = 0;
-//     int bursttime;
-//     while (fgets(buffer, BUFFERSIZE, fptr) != NULL){
-//         buffer[strcspn(buffer, "\n")] = 0;
-//         id = atoi(strtok(buffer, DELIMITERS));
-//         bursttime = atoi(strtok(NULL, DELIMITERS));
-//         totaltime = totaltime + bursttime;
-//         processes[id] = bursttime;
-//         processcount++;
-//     }
-//     pthread_t thread_id[2];
-//     while(processcount != processdonecount){
-//         if(threadscount == 2){continue;}
-//         if(processcount - 1 == processdonecount){break;}
-//         int *bursttimearg = malloc(sizeof(int));
-//         *bursttimearg = processes[processdonecount];
-//         pthread_create(&thread_id[threadscount], NULL, threadProcess, (void *)bursttimearg);
-//         threadscount++;
-//     }
-//     pthread_join(thread_id[threadscount], NULL);
-//     end_time = clock();
-//     cpu_time_used = ((double)(end_time - start_time) / CLOCKS_PER_SEC);
-//     printf("Execution time: %f seconds\n", cpu_time_used);
-//     printf("Expected time (no threads): %f seconds\n", (double)totaltime/1000);
-//     return 0;
-// }
