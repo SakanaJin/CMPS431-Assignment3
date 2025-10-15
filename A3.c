@@ -34,10 +34,10 @@ pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 
 static double time_since_start_ms(struct timeval *time){
-    return (double)(time->tv_sec - global_start.tv_sec) * 1000 + (time->tv_usec - global_start.tv_usec) / 1000;
+    return ((double)(time->tv_sec - global_start.tv_sec) * 1000) + ((double)(time->tv_usec - global_start.tv_usec)) / 1000;
 }
 
-struct Process* createProcess(int id, int bursttime){
+struct Process* createProcess(int id, double bursttime){
     struct Process *newProcess = (struct Process *)malloc(sizeof(struct Process));
     if(!newProcess){perror("mallocation failed"); exit(1);}
     newProcess->Id = id;
@@ -49,7 +49,7 @@ struct Process* createProcess(int id, int bursttime){
     return newProcess;
 }
 
-void insert_waitqueue_sjf(int id, int bursttime){
+void insert_waitqueue_sjf(int id, double bursttime){
     struct Process *newProcess = createProcess(id, bursttime);
     if(waitqueuehead == NULL || waitqueuehead->bursttime > bursttime){
         newProcess->next = waitqueuehead;
@@ -157,7 +157,7 @@ int main() {
         int id = atoi(token);
         token = strtok(NULL, DELIMITERS);
         if(!token){continue;}
-        int burst = atoi(token);
+        double burst = strtod(token, NULL);
         insert_waitqueue_sjf(id, burst);
     }
     fclose(fptr);
